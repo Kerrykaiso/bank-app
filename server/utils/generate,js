@@ -1,0 +1,15 @@
+const {v4: uuidv4}= require("uuid")
+
+const generateAccountNumber = ()=>{
+    let accountNumber = ""
+    for (let i = 0; i < 10; i++) {
+         accountNumber += Math.floor(Math.random()*10);
+    }
+    return accountNumber
+}
+
+
+const generatePaystackRefrence=()=>{
+    return uuidv4()
+}
+module.exports= {generateAccountNumber, generatePaystackRefrence}
