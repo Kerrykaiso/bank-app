@@ -5,13 +5,21 @@ const {Benficiary} = require("../models")
 const db = require("../models/index")
 const axios = require("axios")
 
-const generatePaystackUrlService=async(email,amount)=>{
-  
+const generatePaystackUrlService=async(email,amount,accountId,type,status,gateway,userId)=>{
+  const metadata={
+   accountId,
+   type,
+   status,
+   gateway,
+   receiver: null,
+   userId
+  }
     const paystackParams={
         email,
         amount: amount * 100,
         channels:["card"],
-        reference: generatePaystackRefrence()
+        reference: generatePaystackRefrence(),
+        metadata
     }
    
     const config={
@@ -76,6 +84,7 @@ const verifyPaystackDepositService= async(ref)=>{
 
 const deposit = async(accountId,amount,transactionId,status)=>{
     try {
+      //refactor to create transaction and update amount
         const transact = await db.sequelize.transaction()
 
         const depositAmount = parseInt(amount)
@@ -203,14 +212,18 @@ const createBeneficiary=async(data)=>{
   }
 }
 
-const externalTransferService=async(message,amount,code)=>{
+const externalTransferService=async(message,amount,code,transMetadata)=>{
+  const metadata={
+    ...transMetadata
+  }
   const params={
     source: "balance",
     amount: amount*100,
     reason: message,
     recipient:code,
     currency: "NGN",
-    reference:generatePaystackRefrence()
+    reference:generatePaystackRefrence(),
+    metadata
   }
   const config={
     headers:{
@@ -231,6 +244,31 @@ const externalTransferService=async(message,amount,code)=>{
   throw new Error(error.message)
  }
 }
+
+const getTransactionByAccount=async(accountId)=>{
+  try {
+    const transactions = await Transactions.findAll({where: {accountId}})
+    if (!transactions) {
+      throw new Error("Transactions not found")
+    }
+    return transactions
+  } catch (error) {
+    throw new Error(error.message)
+  }
+}
+
+
+const getTransactionByAccountId=async(id)=>{
+  try {
+    const transaction = await Transactions.findOne({where:{id}})
+    if (!transaction) {
+      throw new Error("Transaction not found")
+    }
+    return transaction
+  } catch (error) {
+     throw new Error(error.message)
+  }
+}
 module.exports={
     generatePaystackUrlService,
     createTransactionService,
@@ -243,5 +281,7 @@ module.exports={
     findAccountbyId,
     createPaystackRecipient,
     createBeneficiary,
-    externalTransferService
+    externalTransferService,
+    getTransactionByAccountId,
+    getTransactionByAccount
 }

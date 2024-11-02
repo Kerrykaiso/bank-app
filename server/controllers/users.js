@@ -19,7 +19,8 @@ const createUser=async(req,res,next)=>{
       }
    } catch (error) {
       const err = new Error(error.message)
-      err.status = 400
+      err.status = 500
+      err.statusCode = 500
       return next(err)
    }
 }
@@ -42,7 +43,7 @@ const loginUser=async(req,res,next)=>{
    
   } catch (error) {
    const err = new Error(error.message)
-   err.status = 400
+   err.status = 500
    return next(err)
   }
 }

@@ -18,7 +18,7 @@ const createAccount = async(req,res,next)=>{
     }
   } catch (error) {
     const err = new Error(error.message)
-    err.status = 400
+    err.status = 500
     return next(err)
   }
 }
@@ -32,7 +32,7 @@ try {
    res.status(200).json(allAccounts)
 } catch (error) {
   const err = new Error(error.message)
-  err.status = 400
+  err.status = 500
   return next(err)
 }
 }
@@ -45,7 +45,7 @@ try {
    res.status(200).json(account)
 } catch (error) {
   const err = new Error(error.message)
-  err.status = 400
+  err.status = 500
   return next(err)
 }
 }

@@ -9,8 +9,11 @@ const {
     findAccountbyId,
     createPaystackRecipient,
     createBeneficiary,
-    externalTransferService} = require("../services/transactionService")
+    externalTransferService,
+    getTransactionByAccount,
+    getTransactionByAccountId} = require("../services/transactionService")
 const { transactionType,transactionStatus, gateway } = require("../utils/constants")
+const { escapeHtml } = require("../utils/errorhandler")
 const { generatePaystackRefrence } = require("../utils/generate,js")
 
 const initiatePaystackDeposit=async(req,res,next)=>{
@@ -20,7 +23,15 @@ const initiatePaystackDeposit=async(req,res,next)=>{
   const accountId = req.body.accountId
   const type = transactionType.DEPOSIT
 try {
-  const paystackInfo = await generatePaystackUrlService(email,amount)
+  const paystackInfo = await generatePaystackUrlService(
+    email,
+    amount,
+    accountId,
+    type,
+    transactionStatus.COMPLETED,
+    gateway.PAYSTACK,
+    userId
+  )
 
   const newTransaction={
     userId,
@@ -56,7 +67,7 @@ try {
   const verifiedTransaction = await verifyPaystackDepositService(reference)
   if (!verifiedTransaction) {
       const err = new Error("Payment not found")
-      err.status = 400
+      err.statusCode = 404
       return next(err)
   }
 
@@ -85,7 +96,7 @@ const internalTransfer=async(req,res,next)=>{
     const {receiver,senderAccount} = await transferAccounts(reciverAccountNumber,senderAccountId)
     if (!senderAccount) {
       const err = new Error("account not found")
-      err.status = 400
+      err.status = 404
       return next(err)
     }
     if (senderAccount.balance < amount) {
@@ -144,7 +155,7 @@ const externalTransfer = async(req,res,next)=>{
     const findAccount = await findAccountbyId(senderAccountId)
     if (!findAccount) {
       const err = new Error("Account not found")
-      err.status = 400
+      err.status = 404
       return next(err)
     }
    if (amount <= 0) {
@@ -193,13 +204,22 @@ const externalTransfer = async(req,res,next)=>{
       code = beneficiaryCode.receipentCode
     }
     //initiate transfer
-    const transfer = await externalTransferService(message,amount,code)
+    const transactionMetadata={
+      userId: findAccount.userId,
+      accountId: findAccount.id,
+      amount,
+      type: transactionType.TRANSFER,
+      status: transactionStatus.IN_PROGRESS,
+      receiver:reciverAccountNumber,
+      gateway: gateway.PAYSTACK
+    }
+    const transfer = await externalTransferService(message,amount,code,transactionMetadata)
     if (!transfer) {
       const err = new Error("could not transfer with paystack")
       err.status = 400
       return next(err)
     }
-    const newTransaction={
+    /*const newTransaction={
       userId: findAccount.userId,
       accountId: findAccount.id,
       amount,
@@ -215,7 +235,7 @@ const externalTransfer = async(req,res,next)=>{
       const err = new Error("could not create transaction")
       err.status = 400
       return next(err)
-    }
+    }*/
     res.status(201).status("Transfer successful")
    } catch (error) {
     const err = new Error(error.message)
@@ -223,10 +243,44 @@ const externalTransfer = async(req,res,next)=>{
     return next(err)
    }
 }
+const getTransactionsByAccounts =async(req,res,next)=>{
+  const accountId = req.params.accountId
+  try {
+    const transactions = await getTransactionByAccount(escapeHtml(id))
+    if (!transactions) {
+      const err = new Error("could not fetch trasactions for this account")
+      err.status = 404
+      return next(err)
+    }
+    res.status(200).json(transactions)
+  } catch (error) {
+    const err = new Error(error.message)
+    err.status = 500
+    return next(err)
+  }
+}
 
+const getTransactionsByAccountsId = async(req,res,next)=>{
+  const {transactionId} = req.params
+  try {
+    const singleTransaction = await getTransactionByAccountId(escapeHtml(transactionId))
+    if (!singleTransaction) {
+      const err = new Error("could not fetch this transaction")
+      err.status = 404
+      return next(err)
+    }
+    res.status(200).json(singleTransaction)
+  } catch (error) {
+    const err = new Error(error.message)
+    err.status = 500
+    return next(err)
+  }
+}
 module.exports ={
   initiatePaystackDeposit,
   verifyPaystackDeposit,
   internalTransfer,
-  externalTransfer
+  externalTransfer,
+  getTransactionsByAccounts,
+  getTransactionsByAccountsId
 }
